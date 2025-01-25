@@ -9,8 +9,10 @@ RCON_PASSWORD="integration_test_password"
 GAME_PORT=7777
 RCON_PORT=27020
 
-# Build Docker image
-docker build -t ark-test-server .
+# Build Docker image with verbose output
+docker build --progress=plain -t ark-test-server . || \
+(echo "Docker build failed. Showing detailed build logs:" && \
+ docker build --progress=plain --no-cache -t ark-test-server .)
 
 # Run container
 container_id=$(docker run -d \

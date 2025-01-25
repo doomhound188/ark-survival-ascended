@@ -31,6 +31,7 @@ RUN dnf update -y && \
     libstdc++.i686 \
     cronie \
     procps \
+    dnf-plugins-core \
     && dnf clean all
 
 # Install SteamCMD
@@ -40,11 +41,16 @@ RUN mkdir -p /opt/steamcmd && \
     tar -xvzf steamcmd_linux.tar.gz && \
     rm steamcmd_linux.tar.gz
 
-# Install Glorious Eggrolls Wine
-RUN rpm --import https://dl.winehq.org/wine-builds/winehq.key && \
-    dnf config-manager --add-repo https://dl.winehq.org/wine-builds/rhel/9/winehq.repo && \
-    dnf install -y wine-staging && \
-    wine --version
+# Install Wine with more robust error handling
+RUN set -e && \
+    dnf config-manager --add-repo https://dl.winehq.org/wine-builds/rhel/9/winehq.repo || \
+    (echo "Failed to add WineHQ repository" && exit 1) && \
+    rpm --import https://dl.winehq.org/wine-builds/winehq.key || \
+    (echo "Failed to import WineHQ key" && exit 1) && \
+    dnf install -y wine-staging || \
+    (echo "Wine installation failed" && exit 1) && \
+    wine --version || \
+    (echo "Wine version check failed" && exit 1)
 
 # Create game server directory
 RUN mkdir -p /opt/ark-server

@@ -14,7 +14,10 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Build Docker Image
-      run: docker build -t ark-survival-ascended-server .
+      run: |
+        docker build --progress=plain -t ark-survival-ascended-server . || \
+        (echo "Docker build failed. Showing detailed build logs:" && \
+         docker build --progress=plain --no-cache -t ark-survival-ascended-server .)
     
     - name: Validate Container Startup
       run: |
