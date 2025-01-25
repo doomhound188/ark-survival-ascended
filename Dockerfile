@@ -34,6 +34,7 @@ RUN dnf update -y && \
     dnf-plugins-core \
     libX11.i686 \
     mesa-libGL.i686 \
+    curl \
     && dnf clean all
 
 # Install SteamCMD
@@ -45,20 +46,31 @@ RUN mkdir -p /opt/steamcmd && \
 
 # Install Wine GE from GitHub
 RUN set -e && \
-    # Download latest Wine GE release
-    WINE_GE_RELEASE=$(wget -qO- https://api.github.com/repos/GloriousEggroll/wine-ge-custom/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/') && \
-    wget https://github.com/GloriousEggroll/wine-ge-custom/releases/download/${WINE_GE_RELEASE}/wine-ge-custom-${WINE_GE_RELEASE#GE-Proton}-x86_64.tar.xz -O /tmp/wine-ge.tar.xz && \
-    # Extract Wine GE to /opt
+    # Hardcoded latest known working Wine GE release
+    WINE_GE_RELEASE="GE-Proton8-25" && \
+    WINE_GE_VERSION="${WINE_GE_RELEASE#GE-Proton}" && \
+    WINE_GE_FILENAME="wine-ge-custom-${WINE_GE_VERSION}-x86_64.tar.xz" && \
+    # Download Wine GE release with multiple retry mechanisms
+    (wget -q https://github.com/GloriousEggroll/wine-ge-custom/releases/download/${WINE_GE_RELEASE}/${WINE_GE_FILENAME} -O /tmp/wine-ge.tar.xz || \
+     curl -L -f https://github.com/GloriousEggroll/wine-ge-custom/releases/download/${WINE_GE_RELEASE}/${WINE_GE_FILENAME} -o /tmp/wine-ge.tar.xz) && \
+    # Verify download integrity
+    if [ ! -s /tmp/wine-ge.tar.xz ]; then \
+        echo "Wine GE download failed" && exit 1; \
+    fi && \
+    # Extract Wine GE to /opt with verbose output
     mkdir -p /opt/wine-ge && \
-    tar -xf /tmp/wine-ge.tar.xz -C /opt/wine-ge --strip-components=1 && \
+    tar -xvf /tmp/wine-ge.tar.xz -C /opt/wine-ge --strip-components=1 && \
     # Clean up
     rm /tmp/wine-ge.tar.xz && \
     # Set up Wine environment
     echo 'export PATH="/opt/wine-ge/bin:$PATH"' >> /etc/profile.d/wine-ge.sh && \
     chmod +x /etc/profile.d/wine-ge.sh && \
-    # Verify Wine installation
+    # Verify Wine installation with detailed error reporting
     /opt/wine-ge/bin/wine --version || \
-    (echo "Wine GE installation failed" && exit 1)
+    (echo "Wine GE installation failed. Checking wine binary..." && \
+     ls -l /opt/wine-ge/bin/wine && \
+     file /opt/wine-ge/bin/wine && \
+     exit 1)
 
 # Create game server directory
 RUN mkdir -p /opt/ark-server
