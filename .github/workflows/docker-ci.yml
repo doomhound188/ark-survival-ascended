@@ -1,0 +1,38 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker Image
+      run: docker build -t ark-survival-ascended-server .
+    
+    - name: Validate Container Startup
+      run: |
+        container_id=$(docker run -d \
+          -p 7777:7777/udp \
+          -p 27020:27020 \
+          -e RCON_PASSWORD=test_password \
+          -e MAX_PLAYERS=10 \
+          ark-survival-ascended-server)
+        
+        sleep 60
+        docker logs "$container_id"
+        docker ps | grep "$container_id"
+        docker stop "$container_id"
+        docker rm "$container_id"
+    
+    - name: Scan Docker Image
+      uses: anchore/scan-action@v3
+      with:
+        image: "ark-survival-ascended-server:latest"
+        fail-build: false
