@@ -32,6 +32,8 @@ RUN dnf update -y && \
     cronie \
     procps \
     dnf-plugins-core \
+    libX11.i686 \
+    mesa-libGL.i686 \
     && dnf clean all
 
 # Install SteamCMD
@@ -41,16 +43,22 @@ RUN mkdir -p /opt/steamcmd && \
     tar -xvzf steamcmd_linux.tar.gz && \
     rm steamcmd_linux.tar.gz
 
-# Install Wine with more robust error handling
+# Install Wine GE from GitHub
 RUN set -e && \
-    dnf config-manager --add-repo https://dl.winehq.org/wine-builds/rhel/9/winehq.repo || \
-    (echo "Failed to add WineHQ repository" && exit 1) && \
-    rpm --import https://dl.winehq.org/wine-builds/winehq.key || \
-    (echo "Failed to import WineHQ key" && exit 1) && \
-    dnf install -y wine-staging || \
-    (echo "Wine installation failed" && exit 1) && \
-    wine --version || \
-    (echo "Wine version check failed" && exit 1)
+    # Download latest Wine GE release
+    WINE_GE_RELEASE=$(wget -qO- https://api.github.com/repos/GloriousEggroll/wine-ge-custom/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/') && \
+    wget https://github.com/GloriousEggroll/wine-ge-custom/releases/download/${WINE_GE_RELEASE}/wine-ge-custom-${WINE_GE_RELEASE#GE-Proton}-x86_64.tar.xz -O /tmp/wine-ge.tar.xz && \
+    # Extract Wine GE to /opt
+    mkdir -p /opt/wine-ge && \
+    tar -xf /tmp/wine-ge.tar.xz -C /opt/wine-ge --strip-components=1 && \
+    # Clean up
+    rm /tmp/wine-ge.tar.xz && \
+    # Set up Wine environment
+    echo 'export PATH="/opt/wine-ge/bin:$PATH"' >> /etc/profile.d/wine-ge.sh && \
+    chmod +x /etc/profile.d/wine-ge.sh && \
+    # Verify Wine installation
+    /opt/wine-ge/bin/wine --version || \
+    (echo "Wine GE installation failed" && exit 1)
 
 # Create game server directory
 RUN mkdir -p /opt/ark-server
